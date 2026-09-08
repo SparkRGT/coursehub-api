@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { match } from 'assert';
 
 type Course = {
   id: number;
@@ -18,9 +19,34 @@ export class CoursesService {
             return this.courses;
         }
         return this.courses.filter(course => course.level === level);
-        
+
     }
     findOne(id: number): Course | undefined {
         return this.courses.find(course => course.id === id);
+    }
+    create(input: CreateCourseInput): Course {
+        const course: Course = {
+            id: Math.max(...this.courses.map(course => course.id)) + 1,
+            title: input.title,
+            level: input.level,
+        };
+        this.courses.push(course);
+        return course;
+    }
+
+    update (id: number, input: UpdateCourseInput): Course | undefined {
+        const course = this.findOne(id);
+        if (!course) {
+            return undefined;
+        }
+        Object.assign(course, input);
+        return course;
+    }
+   remove (id:number):Course | undefined {
+        const index = this.courses.findIndex(course => course.id === id);
+        if (index === -1) {
+            return undefined;
+        }
+        return this.courses.splice(index, 1)[0];
     }
 }
