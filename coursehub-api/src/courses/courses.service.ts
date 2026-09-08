@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { match } from 'assert';
-
 type Course = {
   id: number;
   title: string;
   level:string;
 }
+
+type CreateCourseInput = Omit<Course, 'id'>;
+type UpdateCourseInput = Partial<CreateCourseInput>;
 
 @Injectable()
 export class CoursesService {
