@@ -24,6 +24,8 @@ export class CoursesService {
     { id: 3, title: 'NestJS Architecture', level: 'intermediate' },
   ];
 
+  private nextId = 4;
+
   findAll(level?: string): Course[] {
     if (!level) {
       return this.courses;
@@ -36,16 +38,11 @@ export class CoursesService {
     return this.courses.find((course) => course.id === id);
   }
 
-  create(input: CreateCourseInput): Course {
-    const course: Course = {
-      id: Math.max(0, ...this.courses.map((item) => item.id)) + 1,
-      title: input.title,
-      level: input.level,
-    };
-
-    this.courses.push(course);
-    return course;
-  }
+create(createCourseDto: CreateCourseInput): Course {
+  const course = { id: this.nextId++, ...createCourseDto };
+  this.courses.push(course);
+  return course;
+}
 
   update(id: number, input: UpdateCourseInput): Course | undefined {
     const course = this.findOne(id);
