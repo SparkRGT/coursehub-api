@@ -25,6 +25,60 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Matrículas
+
+El módulo administra las matrículas en memoria y valida que el estudiante y el curso existan. Solo permite matricular estudiantes activos y evita duplicar la combinación `studentId`/`courseId`.
+
+### Endpoints
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `POST` | `/enrollments` | Registrar una matrícula |
+| `GET` | `/enrollments?studentId=1&courseId=2` | Consultar matrículas con filtros opcionales combinables |
+| `GET` | `/students/:studentId/enrollments` | Consultar matrículas de un estudiante |
+| `GET` | `/courses/:courseId/enrollments` | Consultar matrículas de un curso |
+| `DELETE` | `/enrollments/:id` | Cancelar una matrícula |
+
+### Ejemplos de request y response
+
+Registrar una matrícula válida:
+
+```http
+POST /enrollments
+Content-Type: application/json
+
+{"studentId":1,"courseId":1}
+```
+
+```json
+{"id":1,"studentId":1,"courseId":1}
+```
+
+Consultar y cancelar:
+
+```http
+GET /enrollments?studentId=1&courseId=1
+```
+
+```json
+[{"id":1,"studentId":1,"courseId":1}]
+```
+
+```http
+DELETE /enrollments/1
+```
+
+```json
+{"id":1,"studentId":1,"courseId":1}
+```
+
+### Demostración de errores
+
+- Matrícula duplicada: repetir `POST /enrollments` con `{"studentId":1,"courseId":1}` responde `409 Conflict`.
+- Estudiante inactivo: ejecutar `PATCH /estudiantes/1/status` con `{"isActive":false}` y luego registrar una matrícula para ese estudiante; responde `403 Forbidden`.
+- Identificador inexistente: `POST /enrollments` con `{"studentId":999,"courseId":1}` responde `404 Not Found`.
+- Datos inválidos o propiedades no permitidas responden `400 Bad Request` por el `ValidationPipe` global.
+
 ## Project setup
 
 ```bash
