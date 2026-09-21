@@ -6,6 +6,7 @@ import { WelcomeController } from './welcome.controller.js';
 import { WelcomeService } from './welcome.service.js';
 import { CoursesModule } from './courses/courses.module.js';
 import { EstudiantesModule } from './estudiantes/estudiantes.module.js';
+import { MatrículasModuleModule } from './matrículas-module/matrículas-module.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -20,6 +21,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     // }),
     CoursesModule,
     EstudiantesModule,
+    MatrículasModuleModule,
   ],
   controllers: [AppController, WelcomeController],
   providers: [AppService, WelcomeService],
