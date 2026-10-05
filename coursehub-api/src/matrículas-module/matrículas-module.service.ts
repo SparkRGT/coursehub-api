@@ -1,72 +1,62 @@
-// import { ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
-// import { CoursesService } from '../courses/courses.service.js';
-// import { EstudiantesService } from '../estudiantes/estudiantes.service.js';
-// import { CreateEnrollmentDto, EnrollmentFiltersDto } from './dto/matricula-dto.js';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
+import { CoursesService } from '../courses/courses.service.js';
+import { EstudiantesService } from '../estudiantes/estudiantes.service.js';
+import { CreateEnrollmentDto, EnrollmentFiltersDto } from './dto/matricula-dto.js';
+import { Enrollment } from './entities/matricula.entity.js';
 
-// export type Enrollment = {
-//   id: number;
-//   studentId: number;
-//   courseId: number;
-// };
+@Injectable()
+export class MatrículasModuleService {
+  constructor(
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepository: Repository<Enrollment>,
+    private readonly estudiantesService: EstudiantesService,
+    private readonly coursesService: CoursesService,
+  ) {}
 
-// @Injectable()
-// export class MatrículasModuleService {
-//   private readonly enrollments: Enrollment[] = [];
-//   private nextId = 1;
+  findAll(filters: EnrollmentFiltersDto = {}) {
+    const where: FindOptionsWhere<Enrollment> = {};
+    if (filters.studentId !== undefined) where.studentId = filters.studentId;
+    if (filters.courseId !== undefined) where.courseId = filters.courseId;
+    return this.enrollmentRepository.find({ where });
+  }
 
-//   constructor(
-//     @Optional() private readonly estudiantesService: EstudiantesService,
-//     @Optional() private readonly coursesService: CoursesService,
-//   ) {}
+  async create(input: CreateEnrollmentDto): Promise<Enrollment> {
+    const student = await this.estudiantesService.findOne(input.studentId);
+    if (!student.isActive) {
+      throw new ForbiddenException(`El estudiante ${input.studentId} está inactivo`);
+    }
 
-//   findAll(filters: EnrollmentFiltersDto = {}): Enrollment[] {
-//     return this.enrollments.filter(
-//       (enrollment) =>
-//         (filters.studentId === undefined || enrollment.studentId === filters.studentId) &&
-//         (filters.courseId === undefined || enrollment.courseId === filters.courseId),
-//     );
-//   }
+    await this.coursesService.findOne(String(input.courseId));
 
-//   create(input: CreateEnrollmentDto): Enrollment {
-//     const student = this.estudiantesService.findOne(input.studentId);
-//     if (!student.isActive) {
-//       throw new ForbiddenException(`El estudiante ${input.studentId} está inactivo`);
-//     }
+    const existing = await this.enrollmentRepository.findOne({
+      where: { studentId: input.studentId, courseId: input.courseId },
+    });
+    if (existing) {
+      throw new ConflictException('La matrícula ya existe');
+    }
 
-//     if (!this.coursesService.findOne(input.courseId)) {
-//       throw new NotFoundException(`No existe el curso con id ${input.courseId}`);
-//     }
+    const enrollment = this.enrollmentRepository.create(input);
+    return this.enrollmentRepository.save(enrollment);
+  }
 
-//     if (this.enrollments.some(
-//       (enrollment) => enrollment.studentId === input.studentId && enrollment.courseId === input.courseId,
-//     )) {
-//       throw new ConflictException('La matrícula ya existe');
-//     }
+  async findByStudent(studentId: number): Promise<Enrollment[]> {
+    await this.estudiantesService.findOne(studentId);
+    return this.findAll({ studentId });
+  }
 
-//     const enrollment: Enrollment = { id: this.nextId++, ...input };
-//     this.enrollments.push(enrollment);
-//     return enrollment;
-//   }
+  async findByCourse(courseId: number): Promise<Enrollment[]> {
+    await this.coursesService.findOne(String(courseId));
+    return this.findAll({ courseId });
+  }
 
-//   findByStudent(studentId: number): Enrollment[] {
-//     this.estudiantesService.findOne(studentId);
-//     return this.findAll({ studentId });
-//   }
-
-//   findByCourse(courseId: number): Enrollment[] {
-//     if (!this.coursesService.findOne(courseId)) {
-//       throw new NotFoundException(`No existe el curso con id ${courseId}`);
-//     }
-//     return this.findAll({ courseId });
-//   }
-
-//   remove(id: number): Enrollment {
-//     const index = this.enrollments.findIndex((enrollment) => enrollment.id === id);
-//     if (index === -1) {
-//       throw new NotFoundException(`No existe la matrícula con id ${id}`);
-//     }
-//     const [enrollment] = this.enrollments.splice(index, 1);
-//     return enrollment;
-//   }
-// }
-
+  async remove(id: number): Promise<Enrollment> {
+    const enrollment = await this.enrollmentRepository.findOne({ where: { id } });
+    if (!enrollment) {
+      throw new NotFoundException(`No existe la matrícula con id ${id}`);
+    }
+    await this.enrollmentRepository.delete(id);
+    return enrollment;
+  }
+}

@@ -6,7 +6,7 @@ import { WelcomeController } from './welcome.controller.js';
 import { WelcomeService } from './welcome.service.js';
 import { CoursesModule } from './courses/courses.module.js';
 import { EstudiantesModule } from './estudiantes/estudiantes.module.js';
-// import { MatrículasModuleModule } from './matrículas-module/matrículas-module.module.js';
+import { MatrículasModuleModule } from './matrículas-module/matrículas-module.module.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -26,16 +26,10 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         autoLoadEntities: true, synchronize: true,
       }),
     }),
-    // Distributed tracing, auto-correlated logs, request/job metrics, error
-    // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
-    // ObserveModule.forRoot({
-    //   appKey: 'YOUR_APP_KEY',
-    //   appSecret: 'YOUR_APP_SECRET',
-    //   serviceId: 'coursehub-api',
-    // }),
+    
     CoursesModule,
     EstudiantesModule,
-    // MatrículasModuleModule,
+    MatrículasModuleModule,
   ],
   controllers: [AppController, WelcomeController],
   providers: [AppService, WelcomeService],
