@@ -1,23 +1,24 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, type Relation } from 'typeorm';
+import { Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique, type Relation } from 'typeorm';
 import { Course } from '../../courses/entities/course.entity.js';
 import { Estudiante } from '../../estudiantes/entities/estudiante.entity.js';
 
-@Entity()
+@Entity('enrollments')
+@Unique(['student', 'course'])
 export class Enrollment {
-    @PrimaryGeneratedColumn()
-    id: number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column()
-    studentId: number;
+  @ManyToOne(() => Estudiante, (estudiante) => estudiante.enrollments, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'student_id' })
+  student: Relation<Estudiante>;
 
-    @ManyToOne(() => Estudiante, (estudiante) => estudiante.enrollments)
-    @JoinColumn({ name: 'studentId' })
-    estudiante: Relation<Estudiante>;
-
-    @Column()
-    courseId: number;
-
-    @ManyToOne(() => Course, (course) => course.enrollments)
-    @JoinColumn({ name: 'courseId' })
-    course: Relation<Course>;
+  @ManyToOne(() => Course, (course) => course.enrollments, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'course_id' })
+  course: Relation<Course>;
 }

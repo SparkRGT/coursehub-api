@@ -25,59 +25,95 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-## Matrículas
+## Consultas
 
-El módulo administra las matrículas en memoria y valida que el estudiante y el curso existan. Solo permite matricular estudiantes activos y evita duplicar la combinación `studentId`/`courseId`.
+Los listados de cursos y matrículas se consultan sin descargar la base completa. Una colección vacía responde `200` con `items: []`: el recurso existe, aunque ningún registro coincida. Un `404` solo aparece cuando se pide un curso, estudiante o matrícula que no existe.
 
-### Endpoints
+Los parámetros pasan por DTOs. `page`, `limit`, un id, `sortBy` u `order` inválidos responden `400`. La búsqueda de matrículas usa el marcador `:search` del QueryBuilder; el texto del cliente no se interpola en el SQL.
+
+### Cursos
+
+`GET /courses`
+
+| Parámetro | Regla | Por defecto |
+| --- | --- | --- |
+| `level` | texto opcional; coincidencia exacta | — |
+| `page` | entero mayor o igual que 1 | `1` |
+| `limit` | entero de 1 a 50 | `10` |
+| `sortBy` | `id`, `title` o `level` | `id` |
+| `order` | `ASC` o `DESC` | `ASC` |
+
+La respuesta siempre incluye `items` y `meta` con `total`, `page`, `limit` y `totalPages`.
+
+```http
+GET /courses?level=beginner&page=1&limit=2&sortBy=title&order=ASC
+```
+
+```http
+GET /courses?sortBy=level&order=DESC
+```
+
+`GET /courses?level=no-existe` responde `200` y `items: []`. `GET /courses?sortBy=name` o `GET /courses?limit=51` responden `400`.
+
+### Matrículas
+
+`GET /enrollments` une cada matrícula con su estudiante y su curso. `search` coincide sin distinguir mayúsculas en `student.name` o `course.title`.
+
+| Parámetro | Regla | Por defecto |
+| --- | --- | --- |
+| `search` | texto opcional, comparado con `ILIKE` | — |
+| `studentId` | entero mayor o igual que 1 | — |
+| `courseId` | entero mayor o igual que 1 | — |
+| `activeOnly` | `true` o `false`; solo `true` limita a estudiantes activos | — |
+| `page` | entero mayor o igual que 1 | `1` |
+| `limit` | entero de 1 a 50 | `10` |
+
+Cada filtro se añade solo si el cliente lo envió. `meta` incluye `total`, `page`, `limit` y `totalPages`.
+
+```http
+GET /enrollments?search=nest&activeOnly=true&page=1&limit=5
+```
+
+```http
+GET /enrollments?studentId=4&courseId=1
+```
+
+```http
+GET /enrollments?search=inexistente
+```
+
+La última petición responde `200`, `items: []` y `total: 0`.
+
+El valor de `search` viaja así, separado de la estructura SQL:
+
+```ts
+qb.andWhere('(student.name ILIKE :search OR course.title ILIKE :search)', {
+  search: `%${query.search.trim()}%`,
+});
+```
+
+### Crear y cancelar matrículas
+
+Solo se matricula a un estudiante activo y no se repite la pareja `studentId`/`courseId`.
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | `POST` | `/enrollments` | Registrar una matrícula |
-| `GET` | `/enrollments?studentId=1&courseId=2` | Consultar matrículas con filtros opcionales combinables |
-| `GET` | `/students/:studentId/enrollments` | Consultar matrículas de un estudiante |
-| `GET` | `/courses/:courseId/enrollments` | Consultar matrículas de un curso |
+| `GET` | `/enrollments/students/:studentId` | Matrículas de un estudiante |
+| `GET` | `/enrollments/courses/:courseId` | Matrículas de un curso |
 | `DELETE` | `/enrollments/:id` | Cancelar una matrícula |
-
-### Ejemplos de request y response
-
-Registrar una matrícula válida:
 
 ```http
 POST /enrollments
 Content-Type: application/json
 
-{"studentId":1,"courseId":1}
+{"studentId":4,"courseId":1}
 ```
 
-```json
-{"id":1,"studentId":1,"courseId":1}
-```
-
-Consultar y cancelar:
-
-```http
-GET /enrollments?studentId=1&courseId=1
-```
-
-```json
-[{"id":1,"studentId":1,"courseId":1}]
-```
-
-```http
-DELETE /enrollments/1
-```
-
-```json
-{"id":1,"studentId":1,"courseId":1}
-```
-
-### Demostración de errores
-
-- Matrícula duplicada: repetir `POST /enrollments` con `{"studentId":1,"courseId":1}` responde `409 Conflict`.
-- Estudiante inactivo: ejecutar `PATCH /estudiantes/1/status` con `{"isActive":false}` y luego registrar una matrícula para ese estudiante; responde `403 Forbidden`.
-- Identificador inexistente: `POST /enrollments` con `{"studentId":999,"courseId":1}` responde `404 Not Found`.
-- Datos inválidos o propiedades no permitidas responden `400 Bad Request` por el `ValidationPipe` global.
+- Matrícula duplicada: `409 Conflict`.
+- Estudiante inactivo: `400 Bad Request`.
+- Estudiante o curso inexistente: `404 Not Found`.
+- Id de ruta no numérico, como `GET /courses/abc` o `GET /enrollments/students/abc`: `400 Bad Request`.
 
 ## Project setup
 

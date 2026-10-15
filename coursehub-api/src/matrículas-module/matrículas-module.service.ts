@@ -1,9 +1,10 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CoursesService } from '../courses/courses.service.js';
 import { EstudiantesService } from '../estudiantes/estudiantes.service.js';
-import { CreateEnrollmentDto, EnrollmentFiltersDto } from './dto/matricula-dto.js';
+import { EnrollmentsQueryDto } from './dto/enrollments-query.dto.js';
+import { CreateEnrollmentDto } from './dto/matricula-dto.js';
 import { Enrollment } from './entities/matricula.entity.js';
 
 @Injectable()
@@ -15,40 +16,78 @@ export class MatrículasModuleService {
     private readonly coursesService: CoursesService,
   ) {}
 
-  findAll(filters: EnrollmentFiltersDto = {}) {
-    const where: FindOptionsWhere<Enrollment> = {};
-    if (filters.studentId !== undefined) where.studentId = filters.studentId;
-    if (filters.courseId !== undefined) where.courseId = filters.courseId;
-    return this.enrollmentRepository.find({ where });
-  }
+  async findAll(query: EnrollmentsQueryDto) {
+    const qb = this.enrollmentRepository
+      .createQueryBuilder('enrollment')
+      .leftJoinAndSelect('enrollment.student', 'student')
+      .leftJoinAndSelect('enrollment.course', 'course');
 
-  async create(input: CreateEnrollmentDto): Promise<Enrollment> {
-    const student = await this.estudiantesService.findOne(input.studentId);
-    if (!student.isActive) {
-      throw new ForbiddenException(`El estudiante ${input.studentId} está inactivo`);
+    if (query.search) {
+      qb.andWhere('(student.name ILIKE :search OR course.title ILIKE :search)', {
+        search: `%${query.search.trim()}%`,
+      });
+    }
+    if (query.studentId) {
+      qb.andWhere('student.id = :studentId', { studentId: query.studentId });
+    }
+    if (query.courseId) {
+      qb.andWhere('course.id = :courseId', { courseId: query.courseId });
+    }
+    if (query.activeOnly === 'true') {
+      qb.andWhere('student.isActive = :active', { active: true });
     }
 
-    await this.coursesService.findOne(String(input.courseId));
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
 
-    const existing = await this.enrollmentRepository.findOne({
-      where: { studentId: input.studentId, courseId: input.courseId },
-    });
-    if (existing) {
-      throw new ConflictException('La matrícula ya existe');
-    }
+    qb.orderBy('enrollment.id', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
-    const enrollment = this.enrollmentRepository.create(input);
-    return this.enrollmentRepository.save(enrollment);
+    const [items, total] = await qb.getManyAndCount();
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
+
+  async create(dto: CreateEnrollmentDto): Promise<Enrollment> {
+  const student = await this.estudiantesService.findOne(dto.studentId);
+  if (!student.isActive) throw new BadRequestException('Inactive students cannot enroll');
+
+  const course = await this.coursesService.findOne(String(dto.courseId));
+
+  const duplicate = await this.enrollmentRepository.findOne({
+    where: { student: { id: student.id }, course: { id: course.id } },
+  });
+  if (duplicate) throw new ConflictException('Student is already enrolled in this course');
+
+  return this.enrollmentRepository.save(
+    this.enrollmentRepository.create({ student, course }),
+  );
+}
 
   async findByStudent(studentId: number): Promise<Enrollment[]> {
     await this.estudiantesService.findOne(studentId);
-    return this.findAll({ studentId });
+    return this.enrollmentRepository.find({
+      where: { student: { id: studentId } },
+      relations: { student: true, course: true },
+      order: { id: 'ASC' },
+    });
   }
 
   async findByCourse(courseId: number): Promise<Enrollment[]> {
     await this.coursesService.findOne(String(courseId));
-    return this.findAll({ courseId });
+    return this.enrollmentRepository.find({
+      where: { course: { id: courseId } },
+      relations: { student: true, course: true },
+      order: { id: 'ASC' },
+    });
   }
 
   async remove(id: number): Promise<Enrollment> {

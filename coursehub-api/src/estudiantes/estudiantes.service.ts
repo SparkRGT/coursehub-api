@@ -22,16 +22,16 @@ export class EstudiantesService {
     }
 
     async findOne(id: number): Promise<Estudiante> {
-        const estudiante = await this.estudianteRepository.findOne({ where: { id } });
+        const estudiante = await this.estudianteRepository.findOneBy({ id });
         if (!estudiante) {
             throw new NotFoundException(`No existe el estudiante con id ${id}`);
         }
         return estudiante;
     }
 
-    async create(input: AddEstudianteDto): Promise<Estudiante> {
-        await this.ensureUniqueEmail(input.email);
-        const estudiante = this.estudianteRepository.create(input);
+    async create(dto: AddEstudianteDto): Promise<Estudiante> {
+        await this.ensureUniqueEmail(dto.email);
+        const estudiante = this.estudianteRepository.create(dto);
         return this.estudianteRepository.save(estudiante);
     }
 

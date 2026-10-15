@@ -12,18 +12,18 @@ export class Estudiante {
     @Column()
     email: string;
 
-    @Column()
+    @Column({type: 'int'})
     age: number;
 
     @Column()
     career: string;
 
-    @Column()
+    @Column({type: 'int'})
     semester: number;
 
-    @Column()
+    @Column({default: true})
     isActive: boolean;
 
-    @OneToMany(() => Enrollment, (enrollment) => enrollment.estudiante)
+    @OneToMany(() => Enrollment, (enrollment) => enrollment.student)
     enrollments: Relation<Enrollment[]>;
 }
