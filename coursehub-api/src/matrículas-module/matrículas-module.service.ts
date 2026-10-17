@@ -1,11 +1,19 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
+import { buildPageMeta, resolveLimit, resolvePage } from '../common/pagination.js';
 import { CoursesService } from '../courses/courses.service.js';
 import { EstudiantesService } from '../estudiantes/estudiantes.service.js';
 import { EnrollmentsQueryDto } from './dto/enrollments-query.dto.js';
 import { CreateEnrollmentDto } from './dto/matricula-dto.js';
 import { Enrollment } from './entities/matricula.entity.js';
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof QueryFailedError &&
+    (error.driverError as { code?: string } | undefined)?.code === '23505'
+  );
+}
 
 @Injectable()
 export class MatrículasModuleService {
@@ -19,12 +27,13 @@ export class MatrículasModuleService {
   async findAll(query: EnrollmentsQueryDto) {
     const qb = this.enrollmentRepository
       .createQueryBuilder('enrollment')
-      .leftJoinAndSelect('enrollment.student', 'student')
-      .leftJoinAndSelect('enrollment.course', 'course');
+      .innerJoinAndSelect('enrollment.student', 'student')
+      .innerJoinAndSelect('enrollment.course', 'course');
 
-    if (query.search) {
+    const search = query.search?.trim();
+    if (search) {
       qb.andWhere('(student.name ILIKE :search OR course.title ILIKE :search)', {
-        search: `%${query.search.trim()}%`,
+        search: `%${search}%`,
       });
     }
     if (query.studentId) {
@@ -37,40 +46,43 @@ export class MatrículasModuleService {
       qb.andWhere('student.isActive = :active', { active: true });
     }
 
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
+    const page = resolvePage(query.page);
+    const limit = resolveLimit(query.limit);
 
     qb.orderBy('enrollment.id', 'ASC')
       .skip((page - 1) * limit)
       .take(limit);
 
     const [items, total] = await qb.getManyAndCount();
-    return {
-      items,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return { items, meta: buildPageMeta(total, page, limit) };
   }
 
   async create(dto: CreateEnrollmentDto): Promise<Enrollment> {
-  const student = await this.estudiantesService.findOne(dto.studentId);
-  if (!student.isActive) throw new BadRequestException('Inactive students cannot enroll');
+    const student = await this.estudiantesService.findOne(dto.studentId);
+    if (!student.isActive) {
+      throw new BadRequestException('Inactive students cannot enroll');
+    }
 
-  const course = await this.coursesService.findOne(String(dto.courseId));
+    const course = await this.coursesService.findOne(String(dto.courseId));
 
-  const duplicate = await this.enrollmentRepository.findOne({
-    where: { student: { id: student.id }, course: { id: course.id } },
-  });
-  if (duplicate) throw new ConflictException('Student is already enrolled in this course');
+    const duplicate = await this.enrollmentRepository.findOne({
+      where: { student: { id: student.id }, course: { id: course.id } },
+    });
+    if (duplicate) {
+      throw new ConflictException('Student is already enrolled in this course');
+    }
 
-  return this.enrollmentRepository.save(
-    this.enrollmentRepository.create({ student, course }),
-  );
-}
+    try {
+      return await this.enrollmentRepository.save(
+        this.enrollmentRepository.create({ student, course }),
+      );
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException('Student is already enrolled in this course');
+      }
+      throw error;
+    }
+  }
 
   async findByStudent(studentId: number): Promise<Enrollment[]> {
     await this.estudiantesService.findOne(studentId);

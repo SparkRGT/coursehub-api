@@ -3,7 +3,7 @@ import { Course } from '../../courses/entities/course.entity.js';
 import { Estudiante } from '../../estudiantes/entities/estudiante.entity.js';
 
 @Entity('enrollments')
-@Unique(['student', 'course'])
+@Unique('UQ_enrollments_student_course', ['student', 'course'])
 export class Enrollment {
   @PrimaryGeneratedColumn()
   id: number;

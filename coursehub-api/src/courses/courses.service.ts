@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CreateCourseDto } from './dto/create-course.dto.js';
-import { UpdateCourseDto } from './dto/create-course.dto.js';
+import { buildPageMeta, resolveLimit, resolvePage } from '../common/pagination.js';
+import { CreateCourseDto, UpdateCourseDto } from './dto/create-course.dto.js';
+import {
+  COURSE_SORT_FIELDS,
+  CoursesQueryDto,
+  SORT_ORDERS,
+} from './dto/courses-query.dto.js';
 import { Course } from './entities/course.entity.js';
-import { CoursesQueryDto } from './dto/courses-query.dto.js';
 
 
 @Injectable()
@@ -15,24 +19,24 @@ export class CoursesService {
   ) {} // 1
 
   async findAll(query: CoursesQueryDto) {
-  const { level, page, limit, sortBy, order } = query;
-  const [items, total] = await this.coursesRepository.findAndCount({
-    where: level ? { level } : {},
-    order: { [sortBy]: order },
-    skip: (page - 1) * limit,
-    take: limit,
-  });
+    const page = resolvePage(query.page);
+    const limit = resolveLimit(query.limit);
+    const sortBy = COURSE_SORT_FIELDS.includes(query.sortBy ?? 'id')
+      ? (query.sortBy ?? 'id')
+      : 'id';
+    const order = SORT_ORDERS.includes(query.order ?? 'ASC')
+      ? (query.order ?? 'ASC')
+      : 'ASC';
 
-  return {
-    items,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-}
+    const [items, total] = await this.coursesRepository.findAndCount({
+      where: query.level ? { level: query.level } : {},
+      order: { [sortBy]: order },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return { items, meta: buildPageMeta(total, page, limit) };
+  }
 
   async findOne(id: string): Promise<Course> {
     const course = await this.coursesRepository.findOneBy({ id: Number(id) }); // 4

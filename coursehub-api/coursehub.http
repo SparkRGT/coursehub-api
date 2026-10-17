@@ -1,0 +1,101 @@
+@baseUrl = http://localhost:4500
+
+### Curso
+POST {{baseUrl}}/courses
+Content-Type: application/json
+
+{
+  "title": "NestJS desde cero",
+  "level": "beginner"
+}
+
+### Estudiante activo
+POST {{baseUrl}}/estudiantes
+Content-Type: application/json
+
+{
+  "name": "Ana Pérez",
+  "email": "ana.perez@example.com",
+  "age": 21,
+  "career": "Ingeniería de Software",
+  "semester": 5,
+  "isActive": true
+}
+
+### Matrícula
+# Sustituye los ids por los que devolvieron los POST anteriores.
+POST {{baseUrl}}/enrollments
+Content-Type: application/json
+
+{
+  "studentId": 1,
+  "courseId": 1
+}
+
+### Consultar la matrícula después de reiniciar la API
+GET {{baseUrl}}/enrollments?studentId=1&courseId=1
+
+### Matrícula duplicada (409)
+POST {{baseUrl}}/enrollments
+Content-Type: application/json
+
+{
+  "studentId": 1,
+  "courseId": 1
+}
+
+### Desactivar estudiante
+PATCH {{baseUrl}}/estudiantes/1/status
+Content-Type: application/json
+
+{
+  "isActive": false
+}
+
+### Segundo curso
+POST {{baseUrl}}/courses
+Content-Type: application/json
+
+{
+  "title": "Consultas SQL",
+  "level": "intermediate"
+}
+
+### Matrícula de estudiante inactivo (400)
+POST {{baseUrl}}/enrollments
+Content-Type: application/json
+
+{
+  "studentId": 1,
+  "courseId": 2
+}
+
+### Estudiante inexistente (404)
+POST {{baseUrl}}/enrollments
+Content-Type: application/json
+
+{
+  "studentId": 99999,
+  "courseId": 1
+}
+
+### Cursos: página, límite y orden
+GET {{baseUrl}}/courses?page=1&limit=2&sortBy=title&order=ASC
+
+### Cursos ordenados por nivel
+GET {{baseUrl}}/courses?sortBy=level&order=DESC
+
+### Colección vacía de cursos (200)
+GET {{baseUrl}}/courses?level=no-existe
+
+### Matrículas: búsqueda y filtros combinados
+GET {{baseUrl}}/enrollments?search=Nest&studentId=1&courseId=1&activeOnly=false&page=1&limit=5
+
+### Búsqueda sin coincidencias (200, items vacíos)
+GET {{baseUrl}}/enrollments?search=inexistente
+
+### Parámetro inválido (400)
+GET {{baseUrl}}/courses?sortBy=name
+
+### Límite inválido (400)
+GET {{baseUrl}}/courses?limit=51

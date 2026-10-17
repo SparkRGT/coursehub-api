@@ -1,11 +1,11 @@
-import { Body, Controller, Delete, Get, Optional, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { EnrollmentsQueryDto } from './dto/enrollments-query.dto.js';
 import { CreateEnrollmentDto } from './dto/matricula-dto.js';
 import { MatrículasModuleService } from './matrículas-module.service.js';
 
 @Controller('enrollments')
 export class MatrículasModuleController {
-	constructor(@Optional() private readonly enrollmentsService: MatrículasModuleService) {}
+	constructor(private readonly enrollmentsService: MatrículasModuleService) {}
 
 	@Post()
 	create(@Body() body: CreateEnrollmentDto) {
