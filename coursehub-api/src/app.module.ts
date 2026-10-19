@@ -11,6 +11,8 @@ import { EstudiantesModule } from './estudiantes/estudiantes.module.js';
 import { MatrículasModuleModule } from './matrículas-module/matrículas-module.module.js';
 import { WelcomeController } from './welcome.controller.js';
 import { WelcomeService } from './welcome.service.js';
+import { UsersModule } from './users/users.module.js';
+import { AuthModule } from './auth/auth.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -29,6 +31,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     CoursesModule,
     EstudiantesModule,
     MatrículasModuleModule,
+    UsersModule,
+    AuthModule,
   ],
   controllers: [AppController, WelcomeController],
   providers: [AppService, WelcomeService],
