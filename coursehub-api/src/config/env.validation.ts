@@ -6,6 +6,7 @@ import {
   IsString,
   Max,
   Min,
+  MinLength,
   validateSync,
 } from 'class-validator';
 
@@ -43,12 +44,26 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   DATABASE_NAME: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(32)
+  JWT_SECRET: string;
+
+  @IsString()
+  @IsNotEmpty()
+  JWT_EXPIRES_IN: string = '15m';
 }
 
 export function validateEnv(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
-  const validated = plainToInstance(EnvironmentVariables, config, {
+  const normalizedConfig = {
+    ...config,
+    JWT_EXPIRES_IN: config.JWT_EXPIRES_IN ?? '15m',
+  };
+
+  const validated = plainToInstance(EnvironmentVariables, normalizedConfig, {
     enableImplicitConversion: true,
   });
   const errors = validateSync(validated, { skipMissingProperties: false });
