@@ -32,15 +32,6 @@ export class AuthService {
     };
   }
 
-  async me(userId: number) {
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new UnauthorizedException(INVALID_CREDENTIALS);
-    }
-
-    return this.toPublicUser(user);
-  }
-
   private async validateCredentials(email: string, password: string) {
     const user = await this.usersService.findByEmailWithPassword(email);
     const passwordMatches = user
