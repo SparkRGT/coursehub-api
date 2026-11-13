@@ -137,6 +137,12 @@ GET {{baseUrl}}/courses?sortBy=name
 ### Límite inválido (400)
 GET {{baseUrl}}/courses?limit=51
 
+### Id no numérico (400, misma forma de error)
+GET {{baseUrl}}/courses/abc
+
+### Curso inexistente (404, misma forma de error)
+GET {{baseUrl}}/courses/99999
+
 ### Cuentas de práctica (una por rol)
 POST {{baseUrl}}/auth/register
 Content-Type: application/json

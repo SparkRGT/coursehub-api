@@ -140,6 +140,42 @@ UPDATE users SET role = 'admin' WHERE email = 'admin@coursehub.test';
 
 `ThrottlerModule` limita a 20 solicitudes por minuto y por IP. `POST /auth/login` baja a 5 por minuto porque recibe credenciales. Al superar el límite la respuesta es `429 Too Many Requests`, sin revelar si el correo o la contraseña eran correctos. El contador vive en memoria del proceso: es suficiente para desarrollo y para una sola instancia.
 
+## Errores
+
+Todas las respuestas de error pasan por un filtro global (`HttpExceptionFilter`) y comparten la misma forma:
+
+```json
+{
+  "statusCode": 404,
+  "error": "Not Found",
+  "message": "Course 3 not found",
+  "path": "/courses/3",
+  "timestamp": "2026-11-13T15:20:00.000Z"
+}
+```
+
+`400` conserva los mensajes de validación en un arreglo. `401` no distingue si falló el correo o la contraseña. `403` indica que la identidad existe pero no tiene permiso. Un error inesperado responde `500` con `Internal server error`: la traza y el detalle quedan solo en el log del servidor.
+
+## Registro de solicitudes y tiempos
+
+`RequestLoggerMiddleware` se aplica a todas las rutas y, al terminar la respuesta, registra `método ruta estado duración`. No guarda la cabecera `Authorization`, contraseñas, tokens ni el cuerpo de la petición. `TimingInterceptor` mide además lo que tarda el manejador y lo registra en nivel debug; si el manejador falla, no oculta el error.
+
+## Capas del módulo de cursos
+
+La actualización de un curso separa HTTP, regla de negocio y persistencia:
+
+```text
+CoursesController        conoce HTTP, pipes, guards y @CurrentUser
+  ↓
+UpdateCourseUseCase      decide quién puede editar y cómo
+  ↓
+CourseRepository         contrato con findById y save
+  ↓
+TypeOrmCourseRepository  traduce el contrato a TypeORM
+```
+
+`COURSE_REPOSITORY` se registra con `provide` y `useClass`. La regla de propiedad vive en `UpdateCourseUseCase`, junto al caso de uso, y se prueba con un repositorio falso sin HTTP ni PostgreSQL. El resto del módulo sigue en `CoursesService`: la refactorización es gradual y el contrato HTTP de `PATCH /courses/:id` no cambió.
+
 ## Consultas de cursos
 
 `GET /courses`
@@ -238,8 +274,8 @@ La secuencia de la entrega está en [docs/demostracion.md](docs/demostracion.md)
 npm test
 ```
 
-Cubren la validación de variables, la política de `synchronize`, los filtros de cursos, la búsqueda parametrizada, la paginación y el orden de estudiantes, el correo único, el guard de roles, las reglas de propiedad de cursos y las reglas de matrícula (inexistente, inactivo, duplicado y restricción única).
+Cubren la validación de variables, la política de `synchronize`, los filtros de cursos, la búsqueda parametrizada, la paginación y el orden de estudiantes, el correo único, el guard de roles, el caso de uso de actualización con un repositorio falso, la forma de los errores, el middleware de registro y las reglas de matrícula (inexistente, inactivo, duplicado y restricción única).
 
 ## Organización
 
-Los controladores delegan. Los DTO validan la entrada con `ValidationPipe` (`whitelist` y `forbidNonWhitelisted`). Los servicios concentran las reglas: estudiante activo, pareja única, paginación y columnas de orden permitidas.
+Los controladores delegan. Los DTO validan la entrada con `ValidationPipe` (`whitelist` y `forbidNonWhitelisted`). Los servicios concentran las reglas: estudiante activo, pareja única, paginación y columnas de orden permitidas. La actualización de cursos es el primer caso de uso con puerto y adaptador; los componentes transversales (logging, errores, tiempos) se aplican una sola vez desde `AppModule`.

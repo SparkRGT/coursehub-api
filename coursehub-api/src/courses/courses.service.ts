@@ -1,10 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthenticatedUser } from '../auth/types/jwt-payload.type.js';
 import { buildPageMeta, resolveLimit, resolvePage } from '../common/pagination.js';
-import { UserRole } from '../users/user-role.enum.js';
-import { CreateCourseDto, UpdateCourseDto } from './dto/create-course.dto.js';
+import { CreateCourseDto } from './dto/create-course.dto.js';
 import {
   COURSE_SORT_FIELDS,
   CoursesQueryDto,
@@ -53,22 +52,9 @@ export class CoursesService {
     return this.coursesRepository.save(course);
   }
 
-  async update(id: string, dto: UpdateCourseDto, actor: AuthenticatedUser) {
-    const course = await this.findOne(id);
-    this.assertCanManage(course, actor);
-    Object.assign(course, dto);
-    return this.coursesRepository.save(course);
-  }
-
   async remove(id: string) {
     const course = await this.findOne(id);
     await this.coursesRepository.remove(course);
     return course;
-  }
-
-  private assertCanManage(course: Course, actor: AuthenticatedUser): void {
-    if (actor.role === UserRole.ADMIN) return;
-    if (course.createdByUserId !== null && course.createdByUserId === actor.id) return;
-    throw new ForbiddenException('No puedes modificar un curso que no te pertenece');
   }
 }

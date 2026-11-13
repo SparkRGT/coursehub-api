@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { UpdateCourseUseCase } from './application/update-course.use-case.js';
 import { CoursesController } from './courses.controller.js';
 import { CoursesService } from './courses.service.js';
 
@@ -8,7 +9,10 @@ describe('CoursesController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CoursesController],
-      providers: [{ provide: CoursesService, useValue: {} }],
+      providers: [
+        { provide: CoursesService, useValue: {} },
+        { provide: UpdateCourseUseCase, useValue: {} },
+      ],
     }).compile();
 
     controller = module.get(CoursesController);
