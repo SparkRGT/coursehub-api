@@ -1,4 +1,18 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import {
+	Body,
+	Controller,
+	Delete,
+	Get,
+	Param,
+	ParseIntPipe,
+	Post,
+	Query,
+	UseGuards,
+} from '@nestjs/common';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { UserRole } from '../users/user-role.enum.js';
 import { EnrollmentsQueryDto } from './dto/enrollments-query.dto.js';
 import { CreateEnrollmentDto } from './dto/matricula-dto.js';
 import { MatrículasModuleService } from './matrículas-module.service.js';
@@ -8,6 +22,8 @@ export class MatrículasModuleController {
 	constructor(private readonly enrollmentsService: MatrículasModuleService) {}
 
 	@Post()
+	@UseGuards(JwtAuthGuard, RolesGuard)
+	@Roles(UserRole.ADMIN)
 	create(@Body() body: CreateEnrollmentDto) {
 		return this.enrollmentsService.create(body);
 	}
@@ -28,6 +44,8 @@ export class MatrículasModuleController {
 	}
 
 	@Delete(':id')
+	@UseGuards(JwtAuthGuard, RolesGuard)
+	@Roles(UserRole.ADMIN)
 	remove(@Param('id', ParseIntPipe) id: number) {
 		return this.enrollmentsService.remove(id);
 	}

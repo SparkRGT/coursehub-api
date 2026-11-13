@@ -1,10 +1,22 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
+import { buildPageMeta, resolveLimit, resolvePage } from '../common/pagination.js';
 import { AddEstudianteDto } from './dto/add-estudiante.dto.js';
-import { EstudianteFiltersDto } from './dto/estudiante-filters.dto.js';
+import {
+  ESTUDIANTE_SORT_FIELDS,
+  ESTUDIANTE_SORT_ORDERS,
+  EstudianteFiltersDto,
+} from './dto/estudiante-filters.dto.js';
 import { UpdateEstudianteDto } from './dto/update-estudiante.dto.js';
 import { Estudiante } from './entities/estudiante.entity.js';
+
+function isUniqueViolation(error: unknown): boolean {
+    return (
+        error instanceof QueryFailedError &&
+        (error.driverError as { code?: string } | undefined)?.code === '23505'
+    );
+}
 
 @Injectable()
 export class EstudiantesService {
@@ -13,12 +25,40 @@ export class EstudiantesService {
         private readonly estudianteRepository: Repository<Estudiante>,
     ) {}
 
-    findAll(filters: EstudianteFiltersDto = {}) {
-        const where: FindOptionsWhere<Estudiante> = {};
-        if (filters.career) where.career = filters.career;
-        if (filters.semester !== undefined) where.semester = filters.semester;
-        if (filters.isActive !== undefined) where.isActive = filters.isActive;
-        return this.estudianteRepository.find({ where });
+    async findAll(filters: EstudianteFiltersDto = {}) {
+        const page = resolvePage(filters.page);
+        const limit = resolveLimit(filters.limit);
+        const sortBy = ESTUDIANTE_SORT_FIELDS.includes(filters.sortBy ?? 'id')
+            ? (filters.sortBy ?? 'id')
+            : 'id';
+        const order = ESTUDIANTE_SORT_ORDERS.includes(filters.order ?? 'ASC')
+            ? (filters.order ?? 'ASC')
+            : 'ASC';
+
+        const qb = this.estudianteRepository.createQueryBuilder('student');
+        if (filters.career) {
+            qb.andWhere('student.career = :career', { career: filters.career });
+        }
+        if (filters.semester !== undefined) {
+            qb.andWhere('student.semester = :semester', { semester: filters.semester });
+        }
+        if (filters.isActive !== undefined) {
+            qb.andWhere('student.isActive = :isActive', { isActive: filters.isActive });
+        }
+        const search = filters.search?.trim();
+        if (search) {
+            qb.andWhere(
+                '(student.name ILIKE :search OR student.email ILIKE :search)',
+                { search: `%${search}%` },
+            );
+        }
+
+        qb.orderBy(`student.${sortBy}`, order)
+            .skip((page - 1) * limit)
+            .take(limit);
+
+        const [items, total] = await qb.getManyAndCount();
+        return { items, meta: buildPageMeta(total, page, limit) };
     }
 
     async findOne(id: number): Promise<Estudiante> {
@@ -32,7 +72,11 @@ export class EstudiantesService {
     async create(dto: AddEstudianteDto): Promise<Estudiante> {
         await this.ensureUniqueEmail(dto.email);
         const estudiante = this.estudianteRepository.create(dto);
-        return this.estudianteRepository.save(estudiante);
+        try {
+            return await this.estudianteRepository.save(estudiante);
+        } catch (error) {
+            this.rethrowDuplicateEmail(error);
+        }
     }
 
     async update(id: number, input: UpdateEstudianteDto): Promise<Estudiante> {
@@ -41,7 +85,11 @@ export class EstudiantesService {
             await this.ensureUniqueEmail(input.email, id);
         }
         Object.assign(estudiante, input);
-        return this.estudianteRepository.save(estudiante);
+        try {
+            return await this.estudianteRepository.save(estudiante);
+        } catch (error) {
+            this.rethrowDuplicateEmail(error);
+        }
     }
 
     async updateStatus(id: number, isActive: boolean): Promise<Estudiante> {
@@ -64,5 +112,12 @@ export class EstudiantesService {
         if (existing && existing.id !== ignoredId) {
             throw new ConflictException('El correo electrónico ya está registrado');
         }
+    }
+
+    private rethrowDuplicateEmail(error: unknown): never {
+        if (isUniqueViolation(error)) {
+            throw new ConflictException('El correo electrónico ya está registrado');
+        }
+        throw error;
     }
 }

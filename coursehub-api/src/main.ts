@@ -9,6 +9,16 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const nodeEnv = config.getOrThrow<string>('NODE_ENV');
   const port = config.getOrThrow<number>('PORT');
+  const corsOrigins = (config.get<string>('CORS_ORIGINS') ?? 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  app.enableCors({
+    origin: corsOrigins,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

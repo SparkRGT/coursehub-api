@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -28,6 +30,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       inject: [ConfigService],
       useFactory: (config: ConfigService) => createTypeOrmOptions(config),
     }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
     CoursesModule,
     EstudiantesModule,
     MatrículasModuleModule,
@@ -35,6 +38,10 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     AuthModule,
   ],
   controllers: [AppController, WelcomeController],
-  providers: [AppService, WelcomeService],
+  providers: [
+    AppService,
+    WelcomeService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

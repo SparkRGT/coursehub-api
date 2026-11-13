@@ -1,7 +1,8 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn, type Relation } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn, Unique, type Relation } from 'typeorm';
 import { Enrollment } from '../../matrículas-module/entities/matricula.entity.js';
 
 @Entity()
+@Unique('UQ_estudiantes_email', ['email'])
 export class Estudiante {
     @PrimaryGeneratedColumn()
     id: number;

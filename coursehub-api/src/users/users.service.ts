@@ -2,6 +2,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { User } from './entities/users.entity.js';
+import { UserRole } from './user-role.enum.js';
 
 @Injectable()
 export class UsersService {
@@ -26,7 +27,11 @@ export class UsersService {
       .getOne();
   }
 
-  async create(email: string, passwordHash: string): Promise<User> {
+  async create(
+    email: string,
+    passwordHash: string,
+    role: UserRole = UserRole.STUDENT,
+  ): Promise<User> {
     const normalizedEmail = this.normalizeEmail(email);
     const existing = await this.findByEmail(normalizedEmail);
     if (existing) throw new ConflictException('Email already registered');
@@ -34,6 +39,7 @@ export class UsersService {
     const user = this.usersRepository.create({
       email: normalizedEmail,
       passwordHash,
+      role,
     });
 
     try {

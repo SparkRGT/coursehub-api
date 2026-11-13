@@ -10,6 +10,8 @@ const validEnv = {
   DATABASE_USER: 'postgres',
   DATABASE_PASSWORD: 'cambia-esta-clave',
   DATABASE_NAME: 'coursehub',
+  JWT_SECRET: 'clave-de-prueba-con-mas-de-32-caracteres',
+  JWT_EXPIRES_IN: '15m',
 };
 
 describe('validateEnv', () => {

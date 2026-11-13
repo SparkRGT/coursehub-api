@@ -50,6 +50,7 @@ psql -U postgres -c "CREATE DATABASE coursehub;"
 | `DATABASE_USER` | sí | `postgres` | Usuario de la base |
 | `DATABASE_PASSWORD` | sí | `cambia-esta-clave` | Contraseña local. Reemplázala en `.env`. |
 | `DATABASE_NAME` | sí | `coursehub` | Nombre de la base |
+| `CORS_ORIGINS` | no | `http://localhost:3000` | Orígenes web permitidos, separados por coma |
 
 La conexión se arma en `createTypeOrmOptions` con `ConfigService`. No hay host, puerto ni contraseña escritos en el código.
 
@@ -83,6 +84,8 @@ NODE_ENV=production; TypeORM synchronize=false
 
 `synchronize: true` no es la política de producción. La regla está en `isSynchronizeEnabled`: solo devuelve `true` cuando `NODE_ENV` es `development`.
 
+En producción la API debe servirse por HTTPS. El token Bearer viaja en cada petición y, sin TLS, puede interceptarse en una red no confiable. La terminación TLS suele quedar en un proxy, balanceador o plataforma de despliegue. Los secretos (`JWT_SECRET`, `DATABASE_PASSWORD`) viven solo en el entorno y nunca en el repositorio.
+
 ## Endpoints
 
 | Método | Ruta | Descripción |
@@ -93,7 +96,7 @@ NODE_ENV=production; TypeORM synchronize=false
 | `PATCH` | `/courses/:id` | Actualizar un curso |
 | `DELETE` | `/courses/:id` | Eliminar un curso |
 | `POST` | `/estudiantes` | Crear un estudiante |
-| `GET` | `/estudiantes` | Listar estudiantes |
+| `GET` | `/estudiantes` | Listar estudiantes con filtros, búsqueda, página y orden |
 | `GET` | `/estudiantes/:id` | Obtener un estudiante |
 | `PATCH` | `/estudiantes/:id` | Actualizar un estudiante |
 | `PATCH` | `/estudiantes/:id/status` | Activar o desactivar un estudiante |
@@ -105,6 +108,37 @@ NODE_ENV=production; TypeORM synchronize=false
 | `DELETE` | `/enrollments/:id` | Cancelar una matrícula |
 
 Un listado sin coincidencias responde `200` con `items: []` y `meta.total: 0`. Un `404` solo aparece cuando se pide un curso, estudiante o matrícula que no existe. Un parámetro inválido responde `400`.
+
+Las lecturas son públicas. Las escrituras requieren JWT y rol, según la matriz de la sección siguiente.
+
+## Autorización
+
+La autenticación responde «¿quién eres?»; la autorización decide si puedes ejecutar la acción. `JwtAuthGuard` valida el token y deja la identidad en `request.user`; `RolesGuard` lee los roles declarados con `@Roles()` junto a la ruta. El orden importa: primero identidad (`401`), después permiso (`403`).
+
+Los roles son cerrados (`UserRole`): `admin`, `teacher` y `student`. Una cuenta nueva recibe `student`, y el rol nunca se toma del cuerpo de la petición. El rol viaja dentro del JWT junto a `sub` y `email`, así que un cambio de rol exige volver a iniciar sesión.
+
+| Ruta | Quién puede |
+| --- | --- |
+| `GET` de cursos, estudiantes y matrículas | cualquiera |
+| `POST /courses` | `admin` y `teacher`; el curso queda a nombre del usuario autenticado |
+| `PATCH /courses/:id` | `admin`, o `teacher` propietario del curso |
+| `DELETE /courses/:id` | `admin` |
+| Escrituras de `/estudiantes` y `/enrollments` | `admin` |
+
+Sin token, o con firma inválida o vencida: `401`. Token válido sin el rol requerido o sin la propiedad del curso: `403`. La propiedad se comprueba en el servicio con `createdByUserId`; un `ownerId` enviado por el cliente se ignora. Un curso antiguo sin propietario solo lo puede modificar un `admin`.
+
+Para las cuentas de práctica, cambia el rol en la base local y vuelve a iniciar sesión:
+
+```sql
+UPDATE users SET role = 'teacher' WHERE email = 'docente@coursehub.test';
+UPDATE users SET role = 'admin' WHERE email = 'admin@coursehub.test';
+```
+
+## CORS y límite de peticiones
+
+`app.enableCors` acepta solo los orígenes de `CORS_ORIGINS`, con `Content-Type` y `Authorization` como cabeceras permitidas. `origin: '*'` no se usa. CORS indica qué orígenes puede leer un navegador; no protege la API de Postman ni sustituye a JWT y a los guards.
+
+`ThrottlerModule` limita a 20 solicitudes por minuto y por IP. `POST /auth/login` baja a 5 por minuto porque recibe credenciales. Al superar el límite la respuesta es `429 Too Many Requests`, sin revelar si el correo o la contraseña eran correctos. El contador vive en memoria del proceso: es suficiente para desarrollo y para una sola instancia.
 
 ## Consultas de cursos
 
@@ -126,6 +160,32 @@ GET /courses?sortBy=level&order=DESC
 ```
 
 `GET /courses?level=no-existe` responde `200` y `items: []`. `GET /courses?sortBy=name` y `GET /courses?limit=51` responden `400`.
+
+## Consultas de estudiantes
+
+`GET /estudiantes`
+
+| Parámetro | Regla | Por defecto |
+| --- | --- | --- |
+| `career` | carrera exacta si se envía | — |
+| `semester` | entero de 1 a 10 | — |
+| `isActive` | `true` o `false` | — |
+| `search` | texto opcional; se compara, sin distinguir mayúsculas, con el nombre o el correo | — |
+| `page` | entero mayor o igual que 1 | `1` |
+| `limit` | entero de 1 a 50 | `10` |
+| `sortBy` | `id`, `name`, `email`, `career` o `semester` | `id` |
+| `order` | `ASC` o `DESC` | `ASC` |
+
+La respuesta incluye `items` y `meta` (`total`, `page`, `limit`, `totalPages`). Los filtros se combinan con `AND` y `search` viaja como parámetro `:search`, no concatenado en el SQL.
+
+```http
+GET /estudiantes?search=ana&career=Ingenier%C3%ADa%20de%20Software&page=1&limit=5&sortBy=name&order=ASC
+GET /estudiantes?isActive=false&sortBy=semester&order=DESC
+```
+
+`GET /estudiantes?sortBy=age` y `GET /estudiantes?limit=51` responden `400`.
+
+El correo del estudiante es único en la base de datos (`UQ_estudiantes_email`). Repetirlo responde `409 Conflict`, tanto si lo detecta el servicio antes de insertar como si PostgreSQL rechaza la escritura.
 
 ## Consultas de matrículas
 
@@ -178,7 +238,7 @@ La secuencia de la entrega está en [docs/demostracion.md](docs/demostracion.md)
 npm test
 ```
 
-Cubren la validación de variables, la política de `synchronize`, los filtros de cursos, la búsqueda parametrizada y las reglas de matrícula (inexistente, inactivo, duplicado y restricción única).
+Cubren la validación de variables, la política de `synchronize`, los filtros de cursos, la búsqueda parametrizada, la paginación y el orden de estudiantes, el correo único, el guard de roles, las reglas de propiedad de cursos y las reglas de matrícula (inexistente, inactivo, duplicado y restricción única).
 
 ## Organización
 

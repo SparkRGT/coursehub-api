@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { vi } from 'vitest';
 import { AuthService } from './auth.service.js';
 import { UsersService } from '../users/users.service.js';
+import { UserRole } from '../users/user-role.enum.js';
 
 vi.mock('bcrypt', () => ({
   compare: vi.fn(),
@@ -51,6 +52,7 @@ describe('AuthService', () => {
       id: 7,
       email: 'test@example.com',
       passwordHash: '$2b$12$abcdefghijklmnopqrstuv',
+      role: UserRole.TEACHER,
       createdAt,
     });
     (bcrypt.compare as any).mockResolvedValue(true);
@@ -58,10 +60,19 @@ describe('AuthService', () => {
     const result = await service.login({ email: 'test@example.com', password: 'secret123' });
 
     expect(bcrypt.compare).toHaveBeenCalledWith('secret123', '$2b$12$abcdefghijklmnopqrstuv');
-    expect(jwtService.signAsync).toHaveBeenCalledWith({ sub: 7, email: 'test@example.com' });
+    expect(jwtService.signAsync).toHaveBeenCalledWith({
+      sub: 7,
+      email: 'test@example.com',
+      role: UserRole.TEACHER,
+    });
     expect(result).toEqual({
       accessToken: 'signed-token',
-      user: { id: 7, email: 'test@example.com', createdAt },
+      user: {
+        id: 7,
+        email: 'test@example.com',
+        role: UserRole.TEACHER,
+        createdAt,
+      },
     });
   });
 });

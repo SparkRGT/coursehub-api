@@ -3,6 +3,7 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Max,
   Min,
@@ -53,6 +54,10 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   JWT_EXPIRES_IN: string = '15m';
+
+  @IsOptional()
+  @IsString()
+  CORS_ORIGINS?: string;
 }
 
 export function validateEnv(

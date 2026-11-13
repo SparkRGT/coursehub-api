@@ -1,17 +1,25 @@
 @baseUrl = http://localhost:4500
+# Las escrituras requieren un token con rol. Obtén uno en POST /auth/login
+# y pégalo en las variables de abajo. `adminToken` administra todo; `teacherToken`
+# solo puede crear cursos y editar los que le pertenecen.
+@adminToken = replace-with-admin-token
+@teacherToken = replace-with-teacher-token
+@studentToken = replace-with-student-token
 
-### Curso
+### Curso (admin o docente)
 POST {{baseUrl}}/courses
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "title": "NestJS desde cero",
   "level": "beginner"
 }
 
-### Estudiante activo
+### Estudiante activo (admin)
 POST {{baseUrl}}/estudiantes
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "name": "Ana Pérez",
@@ -22,10 +30,11 @@ Content-Type: application/json
   "isActive": true
 }
 
-### Matrícula
+### Matrícula (admin)
 # Sustituye los ids por los que devolvieron los POST anteriores.
 POST {{baseUrl}}/enrollments
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "studentId": 1,
@@ -38,23 +47,26 @@ GET {{baseUrl}}/enrollments?studentId=1&courseId=1
 ### Matrícula duplicada (409)
 POST {{baseUrl}}/enrollments
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "studentId": 1,
   "courseId": 1
 }
 
-### Desactivar estudiante
+### Desactivar estudiante (admin)
 PATCH {{baseUrl}}/estudiantes/1/status
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "isActive": false
 }
 
-### Segundo curso
+### Segundo curso (admin o docente)
 POST {{baseUrl}}/courses
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "title": "Consultas SQL",
@@ -64,6 +76,7 @@ Content-Type: application/json
 ### Matrícula de estudiante inactivo (400)
 POST {{baseUrl}}/enrollments
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "studentId": 1,
@@ -73,6 +86,7 @@ Content-Type: application/json
 ### Estudiante inexistente (404)
 POST {{baseUrl}}/enrollments
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "studentId": 99999,
@@ -88,6 +102,29 @@ GET {{baseUrl}}/courses?sortBy=level&order=DESC
 ### Colección vacía de cursos (200)
 GET {{baseUrl}}/courses?level=no-existe
 
+### Estudiantes: búsqueda, filtros, página y orden
+GET {{baseUrl}}/estudiantes?search=ana&semester=5&isActive=true&page=1&limit=5&sortBy=name&order=ASC
+
+### Estudiantes inactivos ordenados por semestre
+GET {{baseUrl}}/estudiantes?isActive=false&sortBy=semester&order=DESC
+
+### Correo de estudiante duplicado (409)
+POST {{baseUrl}}/estudiantes
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Ana Pérez",
+  "email": "ana.perez@example.com",
+  "age": 21,
+  "career": "Ingeniería de Software",
+  "semester": 5,
+  "isActive": true
+}
+
+### Orden de estudiantes no permitido (400)
+GET {{baseUrl}}/estudiantes?sortBy=age
+
 ### Matrículas: búsqueda y filtros combinados
 GET {{baseUrl}}/enrollments?search=Nest&studentId=1&courseId=1&activeOnly=false&page=1&limit=5
 
@@ -99,3 +136,74 @@ GET {{baseUrl}}/courses?sortBy=name
 
 ### Límite inválido (400)
 GET {{baseUrl}}/courses?limit=51
+
+### Cuentas de práctica (una por rol)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "docente@coursehub.test",
+  "password": "docente-seguro-123"
+}
+
+### Login del docente
+# Copia el accessToken en @teacherToken.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "docente@coursehub.test",
+  "password": "docente-seguro-123"
+}
+
+### Curso creado por el docente (201)
+POST {{baseUrl}}/courses
+Content-Type: application/json
+Authorization: Bearer {{teacherToken}}
+
+{
+  "title": "NestJS avanzado",
+  "level": "advanced"
+}
+
+### Docente propietario actualiza su curso (200)
+PATCH {{baseUrl}}/courses/1
+Content-Type: application/json
+Authorization: Bearer {{teacherToken}}
+
+{
+  "title": "NestJS avanzado",
+  "level": "advanced"
+}
+
+### Docente ajeno actualiza el curso (403)
+# Repite el login con otra cuenta docente y usa ese token.
+PATCH {{baseUrl}}/courses/1
+Content-Type: application/json
+Authorization: Bearer {{otherTeacherToken}}
+
+{
+  "title": "NestJS avanzado",
+  "level": "advanced"
+}
+
+### Estudiante intenta borrar un curso (403)
+DELETE {{baseUrl}}/courses/1
+Authorization: Bearer {{studentToken}}
+
+### Sin token (401)
+DELETE {{baseUrl}}/courses/1
+
+### Admin borra el curso (200)
+# UPDATE users SET role = 'admin' WHERE email = 'admin@coursehub.test'; y vuelve a iniciar sesión.
+DELETE {{baseUrl}}/courses/1
+Authorization: Bearer {{adminToken}}
+
+### Login limitado a cinco intentos por minuto (429 en el sexto)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "docente@coursehub.test",
+  "password": "incorrecta"
+}
