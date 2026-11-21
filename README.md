@@ -268,13 +268,32 @@ Niveles válidos de un curso: `beginner`, `intermediate`, `advanced`.
 
 La secuencia de la entrega está en [docs/demostracion.md](docs/demostracion.md). Las mismas peticiones están en [coursehub-api/coursehub.http](coursehub-api/coursehub.http).
 
-## Pruebas
+## Pruebas unitarias
+
+Las pruebas usan Vitest, el runner que ya trae el proyecto, y dobles controlados: no abren PostgreSQL ni levantan HTTP.
 
 ```bash
-npm test
+npm test                        # una pasada completa
+npm run test:watch              # modo interactivo
+npm run test:cov                # con cobertura
+npx vitest run update-course    # solo los archivos que coinciden
 ```
 
-Cubren la validación de variables, la política de `synchronize`, los filtros de cursos, la búsqueda parametrizada, la paginación y el orden de estudiantes, el correo único, el guard de roles, el caso de uso de actualización con un repositorio falso, la forma de los errores, el middleware de registro y las reglas de matrícula (inexistente, inactivo, duplicado y restricción única).
+| Prueba | Regla que protege |
+| --- | --- |
+| `update-course.use-case.spec.ts` | docente propietario actualiza, docente ajeno recibe `403`, admin puede, curso inexistente da `404`; al rechazar no se llama a `save` |
+| `courses.controller.spec.ts` | el controlador delega id, DTO e identidad autenticada y propaga el error del caso de uso |
+| `http-exception.filter.spec.ts` | forma consistente del error y `500` sin detalles internos |
+| `request-logger.middleware.spec.ts` | el registro no incluye cabeceras ni cuerpos |
+| `auth.service.spec.ts` | se firma el token solo tras validar credenciales y el rol viaja en el payload |
+| `roles.guard.spec.ts` | rol permitido, rol distinto y ausencia de identidad |
+| `estudiantes.service.spec.ts` | filtros combinados, búsqueda, paginación, orden y correo duplicado |
+| `courses.service.spec.ts` | filtros, paginación y propietario asignado al crear |
+| `matrículas-module.service.spec.ts` | estudiante inactivo, duplicado y restricción única |
+| `env.validation.spec.ts` | variables obligatorias, `NODE_ENV` y política de `synchronize` |
+| `courses-query.dto.spec.ts` | conversión de tipos y rechazo de parámetros inválidos |
+
+Cada caso sigue Arrange–Act–Assert y su nombre describe el contrato: si falla, se sabe qué comportamiento quedó desprotegido. Las pruebas del caso de uso simulan el repositorio, nunca el propio caso de uso; las del controlador simulan el caso de uso.
 
 ## Organización
 
