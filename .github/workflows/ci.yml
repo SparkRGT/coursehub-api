@@ -1,0 +1,73 @@
+name: quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    name: Instalar, analizar, probar y construir
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: coursehub-api
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: coursehub_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      PORT: 4501
+      DATABASE_HOST: localhost
+      DATABASE_PORT: 5432
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: coursehub_test
+      JWT_SECRET: clave-de-integracion-continua-con-mas-de-32-caracteres
+      JWT_EXPIRES_IN: 15m
+
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: coursehub-api/package-lock.json
+
+      - name: Instalar dependencias desde el archivo de bloqueo
+        run: npm ci
+
+      - name: Análisis estático
+        run: npm run lint
+
+      - name: Pruebas unitarias
+        run: npm test
+
+      - name: Pruebas e2e contra la base de pruebas
+        run: npm run test:e2e
+
+      - name: Construir
+        run: npm run build
+
+      # Señal informativa: hoy hay avisos en dependencias transitivas de Express
+      # (body-parser, multer, proxy-addr, qs). Se corrigen con una actualización
+      # planificada, no cambiando versiones al azar dentro de un flujo verde.
+      - name: Auditoría de dependencias de producción (informativa)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true

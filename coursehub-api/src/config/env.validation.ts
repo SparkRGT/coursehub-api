@@ -87,5 +87,7 @@ export function validateEnv(
 }
 
 export function isSynchronizeEnabled(nodeEnv: string | undefined): boolean {
-  return nodeEnv === 'development';
+  // `test` solo se usa con la base de pruebas, que debe crearse sola en cada
+  // ejecución; producción y cualquier otro entorno quedan sin synchronize.
+  return nodeEnv === 'development' || nodeEnv === 'test';
 }

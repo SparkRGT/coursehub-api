@@ -295,6 +295,44 @@ npx vitest run update-course    # solo los archivos que coinciden
 
 Cada caso sigue Arrange–Act–Assert y su nombre describe el contrato: si falla, se sabe qué comportamiento quedó desprotegido. Las pruebas del caso de uso simulan el repositorio, nunca el propio caso de uso; las del controlador simulan el caso de uso.
 
+## Pruebas de integración (e2e)
+
+Una prueba e2e arranca la aplicación completa, envía una solicitud HTTP real y comprueba la respuesta observable: rutas, guards, pipes, controladores y persistencia colaborando. Complementa a las pruebas unitarias, no las sustituye.
+
+Necesitan un PostgreSQL propio; el conjunto **vacía sus tablas antes de cada caso**, así que la base debe llamarse `coursehub_test`. `test/setup-e2e.ts` rechaza cualquier nombre que no termine en `_test`.
+
+```bash
+# 1. Crear una base exclusiva de pruebas (una sola vez)
+createdb -U postgres coursehub_test
+
+# 2. Ejecutar el conjunto
+npm run test:e2e
+
+# 3. Repetirlo: el resultado debe ser idéntico
+npm run test:e2e
+```
+
+Los valores por defecto están en [coursehub-api/.env.test.example](coursehub-api/.env.test.example): `NODE_ENV=test`, `DATABASE_NAME=coursehub_test` y `PORT=4501`. Si tu PostgreSQL usa otro puerto o credenciales, exporta las variables antes de ejecutar; `test/setup-e2e.ts` solo rellena las que falten.
+
+| Caso | Lo que verifica |
+| --- | --- |
+| `GET /courses` | la ruta pública responde `200` con `{ items, meta }` aunque no haya datos |
+| `POST /courses` sin token | un `401` con el formato de error común (`statusCode`, `path`, `timestamp`) |
+| `POST /courses` con rol `student` | un `403`: el guard de roles se evalúa, no solo la autenticación |
+| `POST /courses` con rol `admin` | `201`, el curso queda persistido con su autor y aparece en la lectura pública filtrada por nivel |
+| `POST /courses` con nivel inválido | `400` desde el `ValidationPipe`, igual que en la aplicación real |
+| `GET /courses/9999` | `404` con la misma forma de error |
+
+La app de prueba se configura con `configureApp` (`src/app.setup.ts`), la misma función que usa `bootstrap`, para que la validación de los DTO no diverja entre pruebas y servidor. Con `NODE_ENV=test` se activa `synchronize` (la base de pruebas se crea sola) y se omite el límite de peticiones, que está cubierto por las pruebas unitarias y por la colección `.http`.
+
+## Integración continua
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) se ejecuta en cada `push` a `main` y en cada solicitud de integración. Levanta un PostgreSQL 16 como servicio, instala con `npm ci` desde el archivo de bloqueo y ejecuta, en orden: análisis estático (`npm run lint`), pruebas unitarias (`npm test`), pruebas e2e contra `coursehub_test` (`npm run test:e2e`), construcción (`npm run build`) y una auditoría de dependencias informativa.
+
+Cada paso aparece con nombre propio en la pestaña *Actions*, de modo que un fallo se identifica sin leer toda la salida. Para reproducir el flujo en local basta con ejecutar esos mismos comandos en `coursehub-api` con el PostgreSQL de pruebas levantado.
+
+La auditoría se marca como informativa a propósito: hoy reporta avisos en dependencias transitivas de Express (`body-parser`, `multer`, `proxy-addr`, `qs`) con corrección disponible en una actualización de versión. Se resolverá como cambio planificado y verificado, no cambiando versiones dentro del flujo para dejar el estado en verde.
+
 ## Organización
 
 Los controladores delegan. Los DTO validan la entrada con `ValidationPipe` (`whitelist` y `forbidNonWhitelisted`). Los servicios concentran las reglas: estudiante activo, pareja única, paginación y columnas de orden permitidas. La actualización de cursos es el primer caso de uso con puerto y adaptador; los componentes transversales (logging, errores, tiempos) se aplican una sola vez desde `AppModule`.

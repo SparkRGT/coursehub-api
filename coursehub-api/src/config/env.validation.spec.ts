@@ -37,10 +37,10 @@ describe('validateEnv', () => {
 });
 
 describe('isSynchronizeEnabled', () => {
-  it('solo activa synchronize en development', () => {
+  it('activa synchronize solo en development y en la base de pruebas', () => {
     expect(isSynchronizeEnabled('development')).toBe(true);
+    expect(isSynchronizeEnabled('test')).toBe(true);
     expect(isSynchronizeEnabled('production')).toBe(false);
-    expect(isSynchronizeEnabled('test')).toBe(false);
     expect(isSynchronizeEnabled(undefined)).toBe(false);
   });
 });

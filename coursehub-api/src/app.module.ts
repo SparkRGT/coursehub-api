@@ -33,7 +33,13 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       inject: [ConfigService],
       useFactory: (config: ConfigService) => createTypeOrmOptions(config),
     }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60_000, limit: 20 }],
+      // Las pruebas e2e envían todas sus solicitudes desde la misma IP en
+      // segundos; el límite se cubre por unidad y aquí solo impediría que el
+      // conjunto fuese repetible.
+      skipIf: () => process.env.NODE_ENV === 'test',
+    }),
     CoursesModule,
     EstudiantesModule,
     MatrículasModuleModule,
