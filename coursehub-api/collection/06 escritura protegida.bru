@@ -1,0 +1,35 @@
+meta {
+  name: 06 escritura protegida (201)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/courses
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "title": "Curso de la colección",
+    "level": "intermediate"
+  }
+}
+
+script:post-response {
+  bru.setVar("courseId", res.body.id);
+}
+
+tests {
+  test("crea el curso a nombre del token", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.title).to.equal("Curso de la colección");
+    expect(res.body.id).to.be.a("number");
+    expect(res.body.createdByUserId).to.be.a("number");
+  });
+}

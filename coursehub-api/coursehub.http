@@ -1,4 +1,7 @@
-@baseUrl = http://localhost:4500
+# Colección de exploración manual (REST Client de VS Code o cliente HTTP de JetBrains).
+# El flujo reproducible con aserciones está en collection/ (ver README).
+# La API expone la versión en la ruta: /v1. El contrato está en /docs (JSON en /docs-json).
+@baseUrl = http://localhost:4500/v1
 # Las escrituras requieren un token con rol. Obtén uno en POST /auth/login
 # y pégalo en las variables de abajo. `adminToken` administra todo; `teacherToken`
 # solo puede crear cursos y editar los que le pertenecen.

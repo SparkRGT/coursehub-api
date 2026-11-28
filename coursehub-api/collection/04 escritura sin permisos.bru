@@ -1,0 +1,31 @@
+meta {
+  name: 04 escritura sin permisos (403)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/courses
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "title": "Curso de un estudiante",
+    "level": "beginner"
+  }
+}
+
+tests {
+  test("el rol student recibe 403 con la forma de error común", function () {
+    expect(res.status).to.equal(403);
+    expect(res.body.statusCode).to.equal(403);
+    expect(res.body.path).to.equal("/v1/courses");
+    expect(res.body).to.have.property("timestamp");
+  });
+}

@@ -1,0 +1,31 @@
+meta {
+  name: 02 login de estudiante
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{studentEmail}}",
+    "password": "contrasena-de-coleccion"
+  }
+}
+
+script:post-response {
+  // El token queda en una variable de sesión; nunca se guarda en el repositorio.
+  bru.setVar("token", res.body.accessToken);
+}
+
+tests {
+  test("devuelve un accessToken", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.accessToken).to.be.a("string");
+    expect(res.body.user.role).to.equal("student");
+  });
+}

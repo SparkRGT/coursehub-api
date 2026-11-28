@@ -70,14 +70,14 @@ describe('CourseHub API (e2e)', () => {
     credentials: { email: string; password: string },
     role: UserRole = UserRole.STUDENT,
   ): Promise<string> {
-    await request(server).post('/auth/register').send(credentials).expect(201);
+    await request(server).post('/v1/auth/register').send(credentials).expect(201);
 
     if (role !== UserRole.STUDENT) {
       await users.update({ email: credentials.email }, { role });
     }
 
     const login = await request(server)
-      .post('/auth/login')
+      .post('/v1/auth/login')
       .send(credentials)
       .expect(200);
 
@@ -85,7 +85,7 @@ describe('CourseHub API (e2e)', () => {
   }
 
   it('GET /courses responde la ruta pública con la forma paginada', async () => {
-    const response = await request(server).get('/courses').expect(200);
+    const response = await request(server).get('/v1/courses').expect(200);
 
     expect(response.body).toEqual({
       items: [],
@@ -95,13 +95,13 @@ describe('CourseHub API (e2e)', () => {
 
   it('POST /courses sin token responde 401 con el formato de error común', async () => {
     const response = await request(server)
-      .post('/courses')
+      .post('/v1/courses')
       .send({ title: 'Curso sin credenciales', level: 'beginner' })
       .expect(401);
 
     expect(response.body).toMatchObject({
       statusCode: 401,
-      path: '/courses',
+      path: '/v1/courses',
     });
     expect(response.body.timestamp).toEqual(expect.any(String));
   });
@@ -110,7 +110,7 @@ describe('CourseHub API (e2e)', () => {
     const token = await registerAndLogin(studentCredentials);
 
     await request(server)
-      .post('/courses')
+      .post('/v1/courses')
       .set('Authorization', `Bearer ${token}`)
       .send({ title: 'Curso de estudiante', level: 'beginner' })
       .expect(403);
@@ -120,7 +120,7 @@ describe('CourseHub API (e2e)', () => {
     const token = await registerAndLogin(adminCredentials, UserRole.ADMIN);
 
     const created = await request(server)
-      .post('/courses')
+      .post('/v1/courses')
       .set('Authorization', `Bearer ${token}`)
       .send({ title: 'NestJS avanzado', level: 'advanced' })
       .expect(201);
@@ -132,7 +132,7 @@ describe('CourseHub API (e2e)', () => {
     });
     expect(created.body.createdByUserId).toEqual(expect.any(Number));
 
-    const list = await request(server).get('/courses?level=advanced').expect(200);
+    const list = await request(server).get('/v1/courses?level=advanced').expect(200);
 
     expect(list.body.items).toHaveLength(1);
     expect(list.body.items[0]).toMatchObject({ title: 'NestJS avanzado' });
@@ -143,21 +143,21 @@ describe('CourseHub API (e2e)', () => {
     const token = await registerAndLogin(adminCredentials, UserRole.ADMIN);
 
     const response = await request(server)
-      .post('/courses')
+      .post('/v1/courses')
       .set('Authorization', `Bearer ${token}`)
       .send({ title: 'Curso con nivel inválido', level: 'experto' })
       .expect(400);
 
     expect(response.body.statusCode).toBe(400);
-    expect(response.body.path).toBe('/courses');
+    expect(response.body.path).toBe('/v1/courses');
   });
 
   it('GET /courses/:id de un curso inexistente responde 404', async () => {
-    const response = await request(server).get('/courses/9999').expect(404);
+    const response = await request(server).get('/v1/courses/9999').expect(404);
 
     expect(response.body).toMatchObject({
       statusCode: 404,
-      path: '/courses/9999',
+      path: '/v1/courses/9999',
     });
   });
 });

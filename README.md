@@ -90,22 +90,24 @@ En producción la API debe servirse por HTTPS. El token Bearer viaja en cada pet
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| `POST` | `/courses` | Crear un curso |
-| `GET` | `/courses` | Listar cursos con filtro, página y orden |
-| `GET` | `/courses/:id` | Obtener un curso |
-| `PATCH` | `/courses/:id` | Actualizar un curso |
-| `DELETE` | `/courses/:id` | Eliminar un curso |
-| `POST` | `/estudiantes` | Crear un estudiante |
-| `GET` | `/estudiantes` | Listar estudiantes con filtros, búsqueda, página y orden |
-| `GET` | `/estudiantes/:id` | Obtener un estudiante |
-| `PATCH` | `/estudiantes/:id` | Actualizar un estudiante |
-| `PATCH` | `/estudiantes/:id/status` | Activar o desactivar un estudiante |
-| `DELETE` | `/estudiantes/:id` | Eliminar un estudiante activo |
-| `POST` | `/enrollments` | Matricular a un estudiante activo en un curso |
-| `GET` | `/enrollments` | Consultar matrículas con filtros, búsqueda y página |
-| `GET` | `/enrollments/students/:studentId` | Matrículas de un estudiante, con su curso |
-| `GET` | `/enrollments/courses/:courseId` | Matrículas de un curso, con su estudiante |
-| `DELETE` | `/enrollments/:id` | Cancelar una matrícula |
+| `POST` | `/v1/courses` | Crear un curso |
+| `GET` | `/v1/courses` | Listar cursos con filtro, página y orden |
+| `GET` | `/v1/courses/:id` | Obtener un curso |
+| `PATCH` | `/v1/courses/:id` | Actualizar un curso |
+| `DELETE` | `/v1/courses/:id` | Eliminar un curso |
+| `POST` | `/v1/estudiantes` | Crear un estudiante |
+| `GET` | `/v1/estudiantes` | Listar estudiantes con filtros, búsqueda, página y orden |
+| `GET` | `/v1/estudiantes/:id` | Obtener un estudiante |
+| `PATCH` | `/v1/estudiantes/:id` | Actualizar un estudiante |
+| `PATCH` | `/v1/estudiantes/:id/status` | Activar o desactivar un estudiante |
+| `DELETE` | `/v1/estudiantes/:id` | Eliminar un estudiante activo |
+| `POST` | `/v1/enrollments` | Matricular a un estudiante activo en un curso |
+| `GET` | `/v1/enrollments` | Consultar matrículas con filtros, búsqueda y página |
+| `GET` | `/v1/enrollments/students/:studentId` | Matrículas de un estudiante, con su curso |
+| `GET` | `/v1/enrollments/courses/:courseId` | Matrículas de un curso, con su estudiante |
+| `DELETE` | `/v1/enrollments/:id` | Cancelar una matrícula |
+
+Todas las rutas viven en `/v1` (ver [Versionado](#versionado)). Ninguna ruta existe sin versión: `GET /courses` responde `404` y la ruta real es `GET /v1/courses`.
 
 Un listado sin coincidencias responde `200` con `items: []` y `meta.total: 0`. Un `404` solo aparece cuando se pide un curso, estudiante o matrícula que no existe. Un parámetro inválido responde `400`.
 
@@ -120,9 +122,9 @@ Los roles son cerrados (`UserRole`): `admin`, `teacher` y `student`. Una cuenta 
 | Ruta | Quién puede |
 | --- | --- |
 | `GET` de cursos, estudiantes y matrículas | cualquiera |
-| `POST /courses` | `admin` y `teacher`; el curso queda a nombre del usuario autenticado |
-| `PATCH /courses/:id` | `admin`, o `teacher` propietario del curso |
-| `DELETE /courses/:id` | `admin` |
+| `POST /v1/courses` | `admin` y `teacher`; el curso queda a nombre del usuario autenticado |
+| `PATCH /v1/courses/:id` | `admin`, o `teacher` propietario del curso |
+| `DELETE /v1/courses/:id` | `admin` |
 | Escrituras de `/estudiantes` y `/enrollments` | `admin` |
 
 Sin token, o con firma inválida o vencida: `401`. Token válido sin el rol requerido o sin la propiedad del curso: `403`. La propiedad se comprueba en el servicio con `createdByUserId`; un `ownerId` enviado por el cliente se ignora. Un curso antiguo sin propietario solo lo puede modificar un `admin`.
@@ -138,7 +140,7 @@ UPDATE users SET role = 'admin' WHERE email = 'admin@coursehub.test';
 
 `app.enableCors` acepta solo los orígenes de `CORS_ORIGINS`, con `Content-Type` y `Authorization` como cabeceras permitidas. `origin: '*'` no se usa. CORS indica qué orígenes puede leer un navegador; no protege la API de Postman ni sustituye a JWT y a los guards.
 
-`ThrottlerModule` limita a 20 solicitudes por minuto y por IP. `POST /auth/login` baja a 5 por minuto porque recibe credenciales. Al superar el límite la respuesta es `429 Too Many Requests`, sin revelar si el correo o la contraseña eran correctos. El contador vive en memoria del proceso: es suficiente para desarrollo y para una sola instancia.
+`ThrottlerModule` limita a 20 solicitudes por minuto y por IP. `POST /v1/auth/login` baja a 5 por minuto porque recibe credenciales. Al superar el límite la respuesta es `429 Too Many Requests`, sin revelar si el correo o la contraseña eran correctos. El contador vive en memoria del proceso: es suficiente para desarrollo y para una sola instancia.
 
 ## Errores
 
@@ -174,11 +176,11 @@ CourseRepository         contrato con findById y save
 TypeOrmCourseRepository  traduce el contrato a TypeORM
 ```
 
-`COURSE_REPOSITORY` se registra con `provide` y `useClass`. La regla de propiedad vive en `UpdateCourseUseCase`, junto al caso de uso, y se prueba con un repositorio falso sin HTTP ni PostgreSQL. El resto del módulo sigue en `CoursesService`: la refactorización es gradual y el contrato HTTP de `PATCH /courses/:id` no cambió.
+`COURSE_REPOSITORY` se registra con `provide` y `useClass`. La regla de propiedad vive en `UpdateCourseUseCase`, junto al caso de uso, y se prueba con un repositorio falso sin HTTP ni PostgreSQL. El resto del módulo sigue en `CoursesService`: la refactorización es gradual y el contrato HTTP de `PATCH /v1/courses/:id` no cambió.
 
 ## Consultas de cursos
 
-`GET /courses`
+`GET /v1/courses`
 
 | Parámetro | Regla | Por defecto |
 | --- | --- | --- |
@@ -191,15 +193,15 @@ TypeOrmCourseRepository  traduce el contrato a TypeORM
 La respuesta incluye `items` y `meta` (`total`, `page`, `limit`, `totalPages`).
 
 ```http
-GET /courses?level=beginner&page=1&limit=2&sortBy=title&order=ASC
-GET /courses?sortBy=level&order=DESC
+GET /v1/courses?level=beginner&page=1&limit=2&sortBy=title&order=ASC
+GET /v1/courses?sortBy=level&order=DESC
 ```
 
-`GET /courses?level=no-existe` responde `200` y `items: []`. `GET /courses?sortBy=name` y `GET /courses?limit=51` responden `400`.
+`GET /v1/courses?level=no-existe` responde `200` y `items: []`. `GET /v1/courses?sortBy=name` y `GET /v1/courses?limit=51` responden `400`.
 
 ## Consultas de estudiantes
 
-`GET /estudiantes`
+`GET /v1/estudiantes`
 
 | Parámetro | Regla | Por defecto |
 | --- | --- | --- |
@@ -215,17 +217,17 @@ GET /courses?sortBy=level&order=DESC
 La respuesta incluye `items` y `meta` (`total`, `page`, `limit`, `totalPages`). Los filtros se combinan con `AND` y `search` viaja como parámetro `:search`, no concatenado en el SQL.
 
 ```http
-GET /estudiantes?search=ana&career=Ingenier%C3%ADa%20de%20Software&page=1&limit=5&sortBy=name&order=ASC
-GET /estudiantes?isActive=false&sortBy=semester&order=DESC
+GET /v1/estudiantes?search=ana&career=Ingenier%C3%ADa%20de%20Software&page=1&limit=5&sortBy=name&order=ASC
+GET /v1/estudiantes?isActive=false&sortBy=semester&order=DESC
 ```
 
-`GET /estudiantes?sortBy=age` y `GET /estudiantes?limit=51` responden `400`.
+`GET /v1/estudiantes?sortBy=age` y `GET /v1/estudiantes?limit=51` responden `400`.
 
 El correo del estudiante es único en la base de datos (`UQ_estudiantes_email`). Repetirlo responde `409 Conflict`, tanto si lo detecta el servicio antes de insertar como si PostgreSQL rechaza la escritura.
 
 ## Consultas de matrículas
 
-`GET /enrollments` devuelve cada matrícula con su estudiante y su curso. `search` se compara, sin distinguir mayúsculas, con el nombre del estudiante o el título del curso. El texto viaja como parámetro `:search`; no se concatena dentro del SQL.
+`GET /v1/enrollments` devuelve cada matrícula con su estudiante y su curso. `search` se compara, sin distinguir mayúsculas, con el nombre del estudiante o el título del curso. El texto viaja como parámetro `:search`; no se concatena dentro del SQL.
 
 | Parámetro | Regla | Por defecto |
 | --- | --- | --- |
@@ -260,13 +262,63 @@ Content-Type: application/json
 | Estudiante o curso inexistente | `404 Not Found` |
 | Estudiante inactivo | `400 Bad Request` |
 | Pareja estudiante–curso ya matriculada | `409 Conflict` |
-| Id de ruta no numérico, por ejemplo `GET /courses/abc` | `400 Bad Request` |
+| Id de ruta no numérico, por ejemplo `GET /v1/courses/abc` | `400 Bad Request` |
 
 Niveles válidos de un curso: `beginner`, `intermediate`, `advanced`.
 
+## Contrato OpenAPI
+
+La API publica su contrato a partir de los decoradores de los controladores y de los DTO. No hay un documento escrito a mano que pueda quedar desactualizado: es la misma fuente que atiende las peticiones.
+
+| Recurso | Dónde |
+| --- | --- |
+| Interfaz navegable | `http://localhost:4500/docs` |
+| Documento OpenAPI en JSON | `http://localhost:4500/docs-json` |
+
+La interfaz se monta fuera de producción (`NODE_ENV !== production`), porque expone la superficie completa de la API a cualquiera que llegue a la URL. El JSON es el que consume una herramienta de cliente y el que se comprueba en las pruebas.
+
+El documento describe, para cada ruta: la versión en la ruta, el DTO de entrada con sus restricciones, la respuesta de éxito con su esquema, los errores reales (`400`, `401`, `403`, `404`, `409`, `429`) con la forma común `ErrorResponseDto`, y `security: bearer` en las escrituras protegidas. El botón *Authorize* de la interfaz pega un token de `POST /v1/auth/login`.
+
+El contrato se verifica, no se promete: `test/openapi.e2e-spec.ts` publica el documento contra la aplicación real y comprueba que las rutas documentadas sean las `/v1/...` que responden, que `POST /v1/courses` declare Bearer y los errores `400`, `401` y `403`, que el listado use el esquema paginado y que el documento no contenga secretos ni nombres internos.
+
+Lo que el contrato **no** promete: compatibilidad retroactiva indefinida ni clientes generados automáticamente. Un cambio incompatible sube la versión de la ruta.
+
+## Versionado
+
+La versión viaja en la ruta (`/v1/...`), declarada por controlador con `@Controller({ path, version })` y activada en `configureApp` con `VersioningType.URI`. Se elige la URI porque el cliente ve la versión sin leer cabeceras y porque Swagger la documenta sin configuración extra.
+
+Reglas de la política:
+
+- Solo se agrega una versión nueva cuando el cambio rompe a un cliente existente: quitar o renombrar un campo, cambiar un tipo, endurecer una validación o cambiar el significado de un estado.
+- Agregar un campo opcional, un filtro o un endpoint nuevo no cambia la versión.
+- `v1` se mantiene mientras exista un consumidor documentado; el retiro se anuncia con antelación y con la versión nueva ya publicada.
+- El versionado se aplicó antes de publicar el contrato para que la documentación refleje las rutas reales desde el primer día.
+
+Las rutas sin prefijo responden `404`: no hay alias silencioso que oculte un cliente sin versionar.
+
 ## Demostración
 
-La secuencia de la entrega está en [docs/demostracion.md](docs/demostracion.md). Las mismas peticiones están en [coursehub-api/coursehub.http](coursehub-api/coursehub.http).
+El flujo principal está en la colección [coursehub-api/collection](coursehub-api/collection), en formato Bruno: registro, inicio de sesión, lectura pública, una escritura rechazada por rol, una escritura aceptada por un `admin` y la lectura del curso creado. Las mismas peticiones, para explorar a mano, están en [coursehub-api/coursehub.http](coursehub-api/coursehub.http).
+
+La URL y las credenciales de práctica viven en `collection/environments/local.bru`; el token se captura en cada ejecución y se guarda como variable secreta de la sesión, nunca en el repositorio.
+
+| Paso | Petición | Qué comprueba |
+| --- | --- | --- |
+| 01 | `POST /v1/auth/register` | la cuenta nueva nace con rol `student` y sin hash en la respuesta |
+| 02 | `POST /v1/auth/login` | devuelve `accessToken`, capturado como variable de sesión |
+| 03 | `GET /v1/courses?limit=5` | la lectura pública responde `{ items, meta }` |
+| 04 | `POST /v1/courses` con el token de estudiante | `403` con la forma de error común: el cliente aprende a manejarlo |
+| 05 | `POST /v1/auth/login` con la cuenta `admin` | el rol viaja en el token |
+| 06 | `POST /v1/courses` con el token de `admin` | `201`, curso creado a nombre del token |
+| 07 | `GET /v1/courses/{{courseId}}` | el curso creado se lee con el mismo contrato |
+
+```bash
+# API local en marcha (npm run start:dev) y una cuenta admin preparada:
+cd coursehub-api/collection
+npx @usebruno/cli run . --env local
+```
+
+La colección se ejecuta desde su propia carpeta; el cliente Bruno de escritorio abre la misma carpeta. La única preparación es la cuenta de administración de práctica, porque la API no permite elegir el rol al registrarse: se registra una vez en `POST /v1/auth/register` y se promueve con el `UPDATE users` de la sección [Autorización](#autorización). Después, la colección se puede repetir: el correo del estudiante se genera en cada ejecución y el título del curso admite duplicados.
 
 ## Pruebas unitarias
 
@@ -316,12 +368,14 @@ Los valores por defecto están en [coursehub-api/.env.test.example](coursehub-ap
 
 | Caso | Lo que verifica |
 | --- | --- |
-| `GET /courses` | la ruta pública responde `200` con `{ items, meta }` aunque no haya datos |
-| `POST /courses` sin token | un `401` con el formato de error común (`statusCode`, `path`, `timestamp`) |
-| `POST /courses` con rol `student` | un `403`: el guard de roles se evalúa, no solo la autenticación |
-| `POST /courses` con rol `admin` | `201`, el curso queda persistido con su autor y aparece en la lectura pública filtrada por nivel |
-| `POST /courses` con nivel inválido | `400` desde el `ValidationPipe`, igual que en la aplicación real |
-| `GET /courses/9999` | `404` con la misma forma de error |
+| `GET /v1/courses` | la ruta pública responde `200` con `{ items, meta }` aunque no haya datos |
+| `POST /v1/courses` sin token | un `401` con el formato de error común (`statusCode`, `path`, `timestamp`) |
+| `POST /v1/courses` con rol `student` | un `403`: el guard de roles se evalúa, no solo la autenticación |
+| `POST /v1/courses` con rol `admin` | `201`, el curso queda persistido con su autor y aparece en la lectura pública filtrada por nivel |
+| `POST /v1/courses` con nivel inválido | `400` desde el `ValidationPipe`, igual que en la aplicación real |
+| `GET /v1/courses/9999` | `404` con la misma forma de error |
+| `GET /docs-json` | el contrato publicado describe exactamente las rutas `/v1/...` que responde la API, sin rutas sueltas |
+| `POST /v1/courses` en el documento | declara `security: bearer` y los errores `400`, `401` y `403` con el esquema común; el JSON no contiene secretos ni nombres internos |
 
 La app de prueba se configura con `configureApp` (`src/app.setup.ts`), la misma función que usa `bootstrap`, para que la validación de los DTO no diverja entre pruebas y servidor. Con `NODE_ENV=test` se activa `synchronize` (la base de pruebas se crea sola) y se omite el límite de peticiones, que está cubierto por las pruebas unitarias y por la colección `.http`.
 

@@ -1,0 +1,31 @@
+meta {
+  name: 01 registro de estudiante
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{studentEmail}}",
+    "password": "contrasena-de-coleccion"
+  }
+}
+
+script:pre-request {
+  // Correo nuevo en cada ejecución: la colección se puede repetir sin limpiar la base.
+  bru.setVar("studentEmail", `estudiante.${Date.now()}@coursehub.test`);
+}
+
+tests {
+  test("registra la cuenta con rol student", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.role).to.equal("student");
+    expect(res.body).to.not.have.property("passwordHash");
+  });
+}

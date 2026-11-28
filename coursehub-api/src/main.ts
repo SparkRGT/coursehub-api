@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { configureApp } from './app.setup.js';
+import { SWAGGER_JSON_PATH, SWAGGER_UI_PATH, setupSwagger } from './config/swagger.js';
 import { isSynchronizeEnabled } from './config/env.validation.js';
 
 async function bootstrap() {
@@ -23,10 +24,23 @@ async function bootstrap() {
 
   configureApp(app);
 
+  // El contrato se publica fuera de producción: en producción la interfaz
+  // navegable expondría la superficie completa de la API a cualquiera.
+  const swaggerEnabled = nodeEnv !== 'production';
+  if (swaggerEnabled) setupSwagger(app);
+
   Logger.log(
     `NODE_ENV=${nodeEnv}; TypeORM synchronize=${isSynchronizeEnabled(nodeEnv)}`,
     'Bootstrap',
   );
+
+  if (swaggerEnabled) {
+    Logger.log(
+      `Contrato OpenAPI en /${SWAGGER_UI_PATH} (JSON en /${SWAGGER_JSON_PATH})`,
+      'Bootstrap',
+    );
+  }
+
   await app.listen(port);
 }
 

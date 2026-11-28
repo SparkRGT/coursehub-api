@@ -14,6 +14,19 @@ Sustituye `DATABASE_PASSWORD` en `.env` por la contraseña de tu PostgreSQL loca
 
 Con `NODE_ENV=development` el arranque registra `TypeORM synchronize=true`. Con `NODE_ENV=production`, `synchronize=false`.
 
+La documentación del contrato está en `http://localhost:4500/docs` y el JSON en `/docs-json`; se monta fuera de producción. Las rutas llevan la versión: `/v1/courses`, `/v1/auth/login`, etc.
+
+## Colección de solicitudes
+
+`collection/` es una colección Bruno con el flujo principal, variables de entorno sin secretos y aserciones por respuesta. Se ejecuta desde esa carpeta:
+
+```bash
+cd collection
+npx @usebruno/cli run . --env local
+```
+
+Requiere la API en marcha y una cuenta con rol `admin` (ver [Autorización](../README.md#autorización)). `coursehub.http` sirve para explorar las mismas rutas a mano.
+
 ## Pruebas
 
 ```bash
